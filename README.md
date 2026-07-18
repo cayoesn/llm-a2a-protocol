@@ -73,8 +73,8 @@ graph TB
     Coord_Logic -->|1. Handshake & Capabilities| Endpoints_Analyst
     Coord_Logic -->|2. Handshake & Capabilities| Endpoints_Auditor
     
-    Coord_Logic -->|3. Delegar Análise (Task Payload)| Endpoints_Analyst
-    Coord_Logic -->|4. Delegar Auditoria (Task Payload)| Endpoints_Auditor
+    Coord_Logic -->|3. Delegar Análise [Task Payload]| Endpoints_Analyst
+    Coord_Logic -->|4. Delegar Auditoria [Task Payload]| Endpoints_Auditor
 
     Analyst_Logic -->|Retorna Resultados Analíticos| Endpoints_Coord
     Auditor_Logic -->|Retorna Relatório de Segurança| Endpoints_Coord
