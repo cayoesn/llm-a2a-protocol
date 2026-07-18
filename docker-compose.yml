@@ -1,0 +1,68 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: a2a_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - a2a_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 5
+
+  coordinator:
+    build: .
+    container_name: a2a_coordinator
+    ports:
+      - "8000:8000"
+    environment:
+      - AGENT_ROLE=coordinator
+      - REDIS_HOST=a2a_redis
+      - REDIS_PORT=6379
+      - ANALYST_AGENT_URL=http://a2a_analyst:8000
+      - AUDITOR_AGENT_URL=http://a2a_auditor:8000
+    networks:
+      - a2a_network
+    depends_on:
+      redis:
+        condition: service_healthy
+      analyst:
+        condition: service_started
+      auditor:
+        condition: service_started
+
+  analyst:
+    build: .
+    container_name: a2a_analyst
+    ports:
+      - "8001:8000"
+    environment:
+      - AGENT_ROLE=analyst
+      - REDIS_HOST=a2a_redis
+      - REDIS_PORT=6379
+    networks:
+      - a2a_network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  auditor:
+    build: .
+    container_name: a2a_auditor
+    ports:
+      - "8002:8000"
+    environment:
+      - AGENT_ROLE=auditor
+      - REDIS_HOST=a2a_redis
+      - REDIS_PORT=6379
+    networks:
+      - a2a_network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+networks:
+  a2a_network:
+    driver: bridge
