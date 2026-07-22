@@ -29,7 +29,7 @@ class CircuitBreaker:
         self.failure_count = 0
         self.last_state_change = time.time()
 
-    def record_success((self) -> None:
+    def record_success(self) -> None:
         self.failure_count = 0
         self.state = CircuitState.CLOSED
 
@@ -98,11 +98,9 @@ class ResilienceManager:
             except Exception as exc:
                 last_exception = exc
                 cb.record_failure()
-                # Calculate Exponential Backoff with Full Jitter
                 delay = random.uniform(0, min(2.0, base_delay_sec * (2 ** attempt)))
                 time.sleep(delay)
 
-        # Se todas as tentativas falharem, adiciona à DLQ (Dead-Letter Queue)
         self.dead_letter_queue.append(
             DeadLetterMessage(
                 message_id=f"msg_{time.time_ns()}",
