@@ -11,4 +11,10 @@ class Settings:
     ANALYST_AGENT_URL: str = os.getenv("ANALYST_AGENT_URL", "http://localhost:8001")
     AUDITOR_AGENT_URL: str = os.getenv("AUDITOR_AGENT_URL", "http://localhost:8002")
 
+    # Observabilidade Langfuse
+    LANGFUSE_PUBLIC_KEY: str = os.getenv("LANGFUSE_PUBLIC_KEY", "pk-lf-demo")
+    LANGFUSE_SECRET_KEY: str = os.getenv("LANGFUSE_SECRET_KEY", "sk-lf-demo")
+    LANGFUSE_HOST: str = os.getenv("LANGFUSE_HOST", "http://localhost:3000")
+
 settings = Settings()
+

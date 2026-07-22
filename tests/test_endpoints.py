@@ -87,3 +87,47 @@ def test_analyst_agent_flow_via_api(test_client):
         assert status_res.status_code == 200
         assert status_res.json()["status"] in ["pending", "running", "completed"]
 
+
+def test_observability_module(monkeypatch):
+    """Garante 100% de cobertura no módulo de observabilidade A2AObservability."""
+    from app.observability import A2AObservability, _create_trace
+    import app.observability as obs_mod
+
+    class MockSpan:
+        def end(self, output=None, level="DEFAULT"):
+            pass
+
+    class MockTrace:
+        def span(self, name, input=None):
+            return MockSpan()
+
+    class MockLangfuse:
+        def trace(self, **kwargs):
+            return MockTrace()
+        def start_observation(self, **kwargs):
+            return MockTrace()
+        def flush(self):
+            pass
+
+    monkeypatch.setattr(obs_mod, "langfuse_client", MockLangfuse())
+
+    trace = A2AObservability.trace_handshake("analyst", ["code_review"])
+    assert trace is not None
+
+    delegation_trace = A2AObservability.trace_task_delegation(
+        "task-123", "coordinator", "analyst", "code_review", {"repo": "test"}
+    )
+    assert delegation_trace is not None
+
+    span = A2AObservability.record_span(delegation_trace, "test_span", {"input": "test"}, {"output": "ok"})
+    assert span is not None
+
+    A2AObservability.flush()
+
+    # Testes com langfuse_client zerado / Nulo
+    monkeypatch.setattr(obs_mod, "langfuse_client", None)
+    assert _create_trace("test") is None
+    assert A2AObservability.trace_handshake("analyst", []) is None
+    assert A2AObservability.record_span(None, "span", {}) is None
+
+

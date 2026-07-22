@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks, status
 from app.config import settings
+from app.observability import A2AObservability
 from app.protocol.schemas import (
     HandshakeRequest, 
     HandshakeResponse, 
@@ -50,11 +51,21 @@ def get_capabilities():
 @app.post("/a2a/handshake", response_model=HandshakeResponse)
 def handshake(request: HandshakeRequest):
     """Realiza o handshake e valida o protocolo de comunicação entre agentes."""
+    trace = A2AObservability.trace_handshake(
+        agent_role=settings.AGENT_ROLE,
+        capabilities=[cap["name"] for cap in agent.capabilities]
+    )
     if not request.token:
+        if trace:
+            trace.update(level="ERROR", status_message="Token de handshake ausente.")
+            A2AObservability.flush()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, 
             detail="Token de handshake ausente ou inválido."
         )
+    if trace:
+        trace.update(output={"status": "accepted", "agent_name": agent.agent_name})
+        A2AObservability.flush()
     return HandshakeResponse(
         status="accepted",
         agent_name=agent.agent_name,
@@ -64,7 +75,6 @@ def handshake(request: HandshakeRequest):
 @app.post("/a2a/tasks", response_model=TaskResponse, status_code=status.HTTP_202_ACCEPTED)
 def create_task(request: TaskCreateRequest, background_tasks: BackgroundTasks):
     """Cria uma nova tarefa de processamento em background."""
-    # Valida se a capacidade solicitada é suportada pelo agente atual
     supported_capabilities = [cap["name"] for cap in agent.capabilities]
     if request.task_type not in supported_capabilities:
         raise HTTPException(
@@ -72,11 +82,20 @@ def create_task(request: TaskCreateRequest, background_tasks: BackgroundTasks):
             detail=f"Capacidade '{request.task_type}' não suportada por este agente. Suportadas: {supported_capabilities}"
         )
         
-    # Inicializa o registro da tarefa no Redis
     task_id = agent.create_task_record(request.task_type, request.payload)
     
-    # Envia a tarefa para execução assíncrona no background loop
+    trace = A2AObservability.trace_task_delegation(
+        task_id=task_id,
+        source_agent="external_client",
+        target_agent=agent.agent_name,
+        task_type=request.task_type,
+        payload=request.payload
+    )
+    
     background_tasks.add_task(agent.process_task, task_id, request.payload)
+    if trace:
+        trace.update(output={"task_id": task_id, "status": "pending"})
+        A2AObservability.flush()
     
     return TaskResponse(
         task_id=task_id,
@@ -100,3 +119,4 @@ def get_task_status(task_id: str):
         result=task_data.get("result"),
         error=task_data.get("error")
     )
+
