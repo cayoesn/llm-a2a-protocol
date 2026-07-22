@@ -193,3 +193,40 @@ Para rodar os testes unitários localmente:
 ```bash
 poetry run pytest --cov=app tests/
 ```
+
+
+
+---
+
+## 🚀 Execução em Container Isolado (100% Autônomo)
+
+Este repositório é **100% independente e autônomo**. Ele não depende de nenhum outro projeto do ecossistema para ser executado, testado ou analisado.
+
+### 🛠️ Componentes Inclusos na Stack Docker Exclusiva:
+- `a2a_app`: Servidor FastAPI de Protocolo Agent-to-Agent em LangGraph.
+- `a2a_postgres`: Banco de dados PostgreSQL dedicado (porta 5433).
+- `a2a_langfuse`: Servidor de observabilidade Langfuse self-hosted pré-inicializado.
+
+### 📦 Como Executar:
+
+1. **Subir toda a pilha isolada**:
+   ```bash
+   docker-compose up -d --build
+   ```
+
+2. **Endpoints & Endereços de Acesso**:
+   - **Serviço da Aplicação**: `http://localhost:8001` (Documentação interativa OpenAPI em `/docs` se aplicável)
+   - **Painel de Observabilidade (Langfuse)**: `http://localhost:3002`
+   - **Credenciais Automáticas do Langfuse**:
+     - Email: `admin@llma2aprotocol.com`
+     - Senha: `adminpassword123`
+
+3. **Execução de Testes Automatizados em Container**:
+   ```bash
+   make test
+   ```
+
+4. **Encerrar a pilha**:
+   ```bash
+   docker-compose down -v
+   ```
