@@ -1,68 +1,70 @@
+version: '3.8'
+
 services:
-  redis:
-    image: redis:7-alpine
-    container_name: a2a_redis
-    ports:
-      - "6379:6379"
-    networks:
-      - a2a_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 2s
-      timeout: 2s
-      retries: 5
-
-  coordinator:
-    build: .
-    container_name: a2a_coordinator
-    ports:
-      - "8000:8000"
+  a2a-postgres:
+    image: postgres:15-alpine
+    container_name: a2a_postgres
     environment:
-      - AGENT_ROLE=coordinator
-      - REDIS_HOST=a2a_redis
-      - REDIS_PORT=6379
-      - ANALYST_AGENT_URL=http://a2a_analyst:8000
-      - AUDITOR_AGENT_URL=http://a2a_auditor:8000
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: a2apassword
+      POSTGRES_DB: a2a_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - a2a_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - a2a_network
-    depends_on:
-      redis:
-        condition: service_healthy
-      analyst:
-        condition: service_started
-      auditor:
-        condition: service_started
 
-  analyst:
+  a2a-langfuse:
+    image: langfuse/langfuse:2
+    container_name: a2a_langfuse
+    depends_on:
+      a2a-postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://postgres:a2apassword@a2a-postgres:5432/a2a_db
+      - NEXTAUTH_SECRET=a2asecret
+      - NEXTAUTH_URL=http://localhost:3002
+      - SALT=a2asalt
+      - ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000
+      - TELEMETRY_ENABLED=false
+      - LANGFUSE_INIT_USER_EMAIL=admin@a2a.com
+      - LANGFUSE_INIT_USER_PASSWORD=adminpassword123
+      - LANGFUSE_INIT_ORG_ID=a2a-org
+      - LANGFUSE_INIT_ORG_NAME=A2A Org
+      - LANGFUSE_INIT_PROJECT_ID=a2a-project
+      - LANGFUSE_INIT_PROJECT_NAME=A2A Project
+      - LANGFUSE_INIT_PROJECT_PUBLIC_KEY=pk-lf-a2a
+      - LANGFUSE_INIT_PROJECT_SECRET_KEY=sk-lf-a2a
+      - LANGFUSE_DISABLE_SIGNUP=true
+    ports:
+      - "3002:3000"
+    networks:
+      - a2a_network
+
+  a2a-app:
     build: .
-    container_name: a2a_analyst
+    container_name: a2a_app
     ports:
       - "8001:8000"
     environment:
-      - AGENT_ROLE=analyst
-      - REDIS_HOST=a2a_redis
-      - REDIS_PORT=6379
+      - ENV=production
+      - LANGFUSE_PUBLIC_KEY=pk-lf-a2a
+      - LANGFUSE_SECRET_KEY=sk-lf-a2a
+      - LANGFUSE_HOST=http://a2a-langfuse:3000
+    depends_on:
+      - a2a-langfuse
     networks:
       - a2a_network
-    depends_on:
-      redis:
-        condition: service_healthy
-
-  auditor:
-    build: .
-    container_name: a2a_auditor
-    ports:
-      - "8002:8000"
-    environment:
-      - AGENT_ROLE=auditor
-      - REDIS_HOST=a2a_redis
-      - REDIS_PORT=6379
-    networks:
-      - a2a_network
-    depends_on:
-      redis:
-        condition: service_healthy
 
 networks:
   a2a_network:
     driver: bridge
+
+volumes:
+  a2a_postgres_data:
